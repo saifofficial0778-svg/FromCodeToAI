@@ -1,0 +1,8 @@
+.env
+.env.*
+
+# Personal documents
+*.jpg
+*.jpeg
+*.png
+*.pdf
