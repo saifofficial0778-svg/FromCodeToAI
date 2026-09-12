@@ -1,0 +1,22 @@
+[project]
+name = "day-15"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Mohd Saif", email = "saifofficial0778@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "groq>=1.7.0",
+    "python-dotenv>=1.2.3",
+    "qdrant-client>=1.19.0",
+    "sentence-transformers>=6.0.1",
+]
+
+[project.scripts]
+day-15 = "day_15:main"
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"
