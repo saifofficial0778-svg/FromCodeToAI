@@ -12,8 +12,8 @@ model=SentenceTransformer('all-MiniLM-L6-v2')#384
 # embedding=model.encode(text)
 # print(embedding[:10])
 
-t1="cats are domestic animals"
-t2="domestic animals are those animals that are tamed and kept by humans"
+t1="animals are kept by human"
+t2="human are kept by animals"
 
 v1=model.encode(t1)
 v2=model.encode(t2)

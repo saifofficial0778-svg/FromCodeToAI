@@ -1,0 +1,19 @@
+[project]
+name = "day-17"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Mohd Saif", email = "saifofficial0778@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "langchain-text-splitters>=1.1.2",
+]
+
+[project.scripts]
+day-17 = "day_17:main"
+
+[build-system]
+requires = ["uv_build>=0.12.6,<0.13.0"]
+build-backend = "uv_build"
