@@ -1,6 +1,7 @@
 from groq import Groq
 import os
 from dotenv import load_dotenv
+import time
 
 load_dotenv()
 
@@ -51,19 +52,44 @@ Do not explain what you removed.
 
 def clean_with_llm(text: str) -> str:
 
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {
-                "role": "system",
-                "content": SYSTEM_PROMPT
-            },
-            {
-                "role": "user",
-                "content": text
-            }
-        ],
-        temperature=0
-    )
+    max_retries = 3
 
-    return response.choices[0].message.content.strip()
+    for attempt in range(max_retries):
+
+        try:
+            response = client.chat.completions.create(
+                model="openai/gpt-oss-20b",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": SYSTEM_PROMPT
+                    },
+                    {
+                        "role": "user",
+                        "content": text
+                    }
+                ],
+                temperature=0
+            )
+
+            return response.choices[0].message.content.strip()
+
+        except Exception as error:
+
+            if "429" in str(error):
+
+                wait_time = 12
+
+                print(
+                    f"   ⏳ Rate limit reached. "
+                    f"Waiting {wait_time}s..."
+                )
+
+                time.sleep(wait_time)
+
+            else:
+                raise error
+
+    raise RuntimeError(
+        "LLM request failed after maximum retries."
+    )

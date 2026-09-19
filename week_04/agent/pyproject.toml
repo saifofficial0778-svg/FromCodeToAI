@@ -1,5 +1,5 @@
 [project]
-name = "personal-notes-rag"
+name = "agent"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -8,18 +8,13 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "fastapi>=0.141.1",
     "groq>=1.7.0",
-    "pathlib>=1.0.1",
-    "pypdf>=6.19.0",
     "python-dotenv>=1.2.3",
-    "python-multipart>=0.0.32",
-    "sentence-transformers>=6.0.1",
-    "uvicorn>=0.53.0",
+    "tavily>=1.1.0",
 ]
 
 [project.scripts]
-personal-notes-rag = "personal_notes_rag:main"
+agent = "agent:main"
 
 [build-system]
 requires = ["uv_build>=0.12.6,<0.13.0"]
