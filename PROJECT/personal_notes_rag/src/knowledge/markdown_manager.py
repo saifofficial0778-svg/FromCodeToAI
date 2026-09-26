@@ -1,104 +1,23 @@
 from pathlib import Path
-from groq import Groq
-import os
-from dotenv import load_dotenv
-
-load_dotenv()
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") 
-client = Groq(api_key=GROQ_API_KEY)
+from datetime import date
 
 NOTES_DIR = Path("data/notes")
 
 
-MERGE_PROMPT = """
-You are a strict Markdown knowledge merger.
-
-You will receive:
-
-1. EXISTING NOTE
-2. NEW CLEANED KNOWLEDGE
-
-Your job is to merge them into one Markdown note.
-
-RULES:
-
-- Preserve existing useful knowledge.
-- Add only genuinely new knowledge.
-- Remove duplicate information.
-- Do NOT summarize.
-- Do NOT rewrite existing sentences.
-- Do NOT translate English/Hinglish.
-- Do NOT correct grammar or spelling.
-- Do NOT add outside knowledge.
-- Preserve useful code exactly.
-- Preserve useful examples exactly.
-- Preserve interview points exactly.
-- Keep the original English/Hinglish wording.
-- Organize new knowledge under the appropriate existing topic heading.
-- If a topic does not exist, create a new heading.
-- Return ONLY the final Markdown.
-"""
-
-
-def merge_notes(existing_note: str, new_knowledge: str) -> str:
-
-    prompt = f"""
-    EXISTING NOTE:
-
-    {existing_note}
-
-
-    NEW CLEANED KNOWLEDGE:
-
-    {new_knowledge}
-    """
-
-    response = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {
-                "role": "system",
-                "content": MERGE_PROMPT
-            },
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0
-    )
-
-    return response.choices[0].message.content.strip()
-
-
-def update_note(topic: str, new_knowledge: str):
-
+def update_note(topic: str, new_knowledge: str, source: str) -> Path:
     NOTES_DIR.mkdir(parents=True, exist_ok=True)
-
     file_path = NOTES_DIR / f"{topic}.md"
 
-    if file_path.exists():
+    marker = f"<!-- source: {source} -->"
 
-        existing_note = file_path.read_text(
-            encoding="utf-8"
-        )
+    # Same PDF dubara run kiya toh duplicate append nahi hoga
+    if file_path.exists() and marker in file_path.read_text(encoding="utf-8"):
+        print(f"⚠️ {source} already added, skipping.")
+        return file_path
 
-        merged_note = merge_notes(
-            existing_note,
-            new_knowledge
-        )
+    block = f"\n\n{marker}\n<!-- added: {date.today()} -->\n\n{new_knowledge.strip()}\n"
 
-        file_path.write_text(
-            merged_note,
-            encoding="utf-8"
-        )
-
-    else:
-
-        file_path.write_text(
-            new_knowledge,
-            encoding="utf-8"
-        )
+    with file_path.open("a", encoding="utf-8") as f:
+        f.write(block)
 
     return file_path

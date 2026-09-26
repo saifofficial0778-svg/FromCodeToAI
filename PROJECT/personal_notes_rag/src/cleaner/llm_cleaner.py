@@ -1,95 +1,93 @@
-from groq import Groq
+import json
 import os
-from dotenv import load_dotenv
+import re
 import time
+from pathlib import Path
+
+from dotenv import load_dotenv
+from groq import Groq
 
 load_dotenv()
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-GROQ_API_KEY = os.getenv("GROQ_API_KEY") 
-client = Groq(api_key=GROQ_API_KEY)
-
+MODEL = "openai/gpt-oss-120b"
+MAX_NOISE_RATIO = 0.6          # isse zyada delete karna ho toh kuch gadbad hai
+LOG_PATH = Path("data/logs/removed.txt")
 
 SYSTEM_PROMPT = """
-You are a strict noise remover for personal learning notes.
+You will get numbered pieces from a Hinglish learning chat.
+Return the IDs of pieces that are PURE conversational noise:
+greetings, praise, motivation, "Done bolo / next chalte hain" type lines,
+"ab clear hua?" type check-in questions, apologies, jokes with no concept.
 
-Your job is ONLY to remove conversational noise from the given chat.
+If a piece has ANY learning content (explanation, analogy, example, code,
+interview answer, definition, a concept question), it is NOT noise.
+If unsure, it is NOT noise.
 
-IMPORTANT RULES:
-
-1. Preserve useful text EXACTLY as it appears.
-2. Do NOT rewrite or rephrase sentences.
-3. Do NOT summarize.
-4. Do NOT translate English/Hinglish.
-5. Do NOT correct grammar or spelling.
-6. Do NOT add your own knowledge.
-7. Preserve code EXACTLY.
-8. Preserve useful examples EXACTLY.
-9. Preserve technical explanations EXACTLY.
-10. Preserve interview points EXACTLY.
-
-Remove ONLY conversational/filler content such as:
-- "bhai"
-- "bro"
-- "bilkul"
-- "koi tension nahi"
-- "chalo"
-- "ab batao"
-- "samajh aaya?"
-- "done bolo"
-- "next chalte hain"
-- motivational talk
-- greetings
-- repeated conversational instructions
-- unnecessary reactions/emojis
-
-If a sentence contains both useful knowledge and conversational words,
-remove ONLY the conversational part while preserving the useful text.
-
-Return ONLY the cleaned text.
-Do not explain what you removed.
+Return ONLY JSON, nothing else: {"noise": [3, 7]}
+Return {"noise": []} if nothing is noise.
 """
 
 
-def clean_with_llm(text: str) -> str:
+def is_code(piece: str) -> bool:
+    if piece.lstrip().startswith("```"):
+        return True
+    lines = [l.strip() for l in piece.splitlines() if l.strip()]
+    if not lines:
+        return False
+    codey = sum(
+        l.endswith((";", "{", "}", ")")) or l.startswith(("//", "console."))
+        for l in lines
+    )
+    return codey / len(lines) > 0.6
 
-    max_retries = 3
 
-    for attempt in range(max_retries):
-
+def ask_llm_for_noise_ids(listing: str, n_pieces: int) -> set[int]:
+    for attempt in range(3):
         try:
-            response = client.chat.completions.create(
-                model="openai/gpt-oss-20b",
+            resp = client.chat.completions.create(
+                model=MODEL,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": SYSTEM_PROMPT
-                    },
-                    {
-                        "role": "user",
-                        "content": text
-                    }
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": listing},
                 ],
-                temperature=0
+                temperature=0,
+                reasoning_effort="low",   # thinking tokens kam; Groq docs me param check kar lena
             )
-
-            return response.choices[0].message.content.strip()
+            content = resp.choices[0].message.content
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            data = json.loads(match.group(0))
+            return {int(i) for i in data["noise"] if 0 <= int(i) < n_pieces}
 
         except Exception as error:
-
             if "429" in str(error):
-
-                wait_time = 12
-
-                print(
-                    f"   ⏳ Rate limit reached. "
-                    f"Waiting {wait_time}s..."
-                )
-
-                time.sleep(wait_time)
-
+                print("   ⏳ Rate limit, waiting 12s...")
+                time.sleep(12)
             else:
-                raise error
+                print(f"   ⚠️ LLM/JSON failed: {error}")
+                break
 
-    raise RuntimeError(
-        "LLM request failed after maximum retries."
-    )
+    return set()   # fail hua toh kuch delete nahi hoga
+
+
+def clean_with_llm(text: str) -> str:
+    pieces = [p for p in re.split(r"\n\s*\n", text) if p.strip()]
+    listing = "\n\n".join(f"[{i}] {p}" for i, p in enumerate(pieces))
+
+    noise = ask_llm_for_noise_ids(listing, len(pieces))
+
+    # code ko kabhi delete mat karo
+    noise = {i for i in noise if not is_code(pieces[i])}
+
+    # safety guard
+    if pieces and len(noise) / len(pieces) > MAX_NOISE_RATIO:
+        print(f"   ⚠️ {len(noise)}/{len(pieces)} pieces noise bole, suspicious. Keeping all.")
+        noise = set()
+
+    # audit log
+    LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with LOG_PATH.open("a", encoding="utf-8") as f:
+        for i in sorted(noise):
+            f.write(f"--- removed ---\n{pieces[i]}\n\n")
+
+    return "\n\n".join(p for i, p in enumerate(pieces) if i not in noise)
