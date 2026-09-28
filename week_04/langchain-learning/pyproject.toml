@@ -1,5 +1,5 @@
 [project]
-name = "langchain"
+name = "langchain-learning"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,11 +7,10 @@ authors = [
     { name = "Mohd Saif", email = "saifofficial0778@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "langchain>=1.4.2",
+]
 
-[project.scripts]
-langchain = "langchain:main"
 
-[build-system]
-requires = ["uv_build>=0.12.6,<0.13.0"]
-build-backend = "uv_build"
+[tool.uv]
+package = false
